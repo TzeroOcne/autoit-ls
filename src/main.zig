@@ -1,11 +1,11 @@
 const std = @import("std");
 const zig_builtin = @import("builtin");
 const zls = @import("zls");
-// const exe_options = @import("exe_options");
+const exe_options = @import("exe_options");
 
 const tracy = @import("tracy");
 const known_folders = @import("known-folders");
-// const binned_allocator = @import("binned_allocator.zig");
+const binned_allocator = @import("binned_allocator.zig");
 
 const log = std.log.scoped(.zls_main);
 
@@ -313,7 +313,8 @@ pub fn main() !u8 {
     //     std.heap.GeneralPurposeAllocator(.{ .stack_trace_frames = stack_frames }){}
     // else
     //     binned_allocator.BinnedAllocator(.{}){};
-    // defer _ = allocator_state.deinit();
+    var allocator_state = binned_allocator.BinnedAllocator(.{}){};
+    defer _ = allocator_state.deinit();
     //
     // var tracy_state = if (tracy.enable_allocation) tracy.tracyAllocator(allocator_state.allocator()) else void{};
     // const inner_allocator: std.mem.Allocator = if (tracy.enable_allocation) tracy_state.allocator() else allocator_state.allocator();

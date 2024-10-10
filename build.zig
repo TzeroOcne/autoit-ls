@@ -15,6 +15,13 @@ pub fn build(b: *std.Build) void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
+    const exe_options = b.addOptions();
+    exe_options.step.name = "ZLS exe options";
+    const exe_options_module = exe_options.createModule();
+    exe_options.addOption(bool, "enable_failing_allocator", b.option(bool, "enable_failing_allocator", "Whether to use a randomly failing allocator.") orelse false);
+    exe_options.addOption(u32, "enable_failing_allocator_likelihood", b.option(u32, "enable_failing_allocator_likelihood", "The chance that an allocation will fail is `1/likelihood`") orelse 256);
+    exe_options.addOption(bool, "use_gpa", b.option(bool, "use_gpa", "Good for debugging") orelse (optimize == .Debug));
+
     const lib = b.addStaticLibrary(.{
         .name = "autoit-ls",
         // In this case the main source file is merely a path, however, in more
@@ -35,6 +42,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    exe.root_module.addImport("exe_options", exe_options_module);
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
