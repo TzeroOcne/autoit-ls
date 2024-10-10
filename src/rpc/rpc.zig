@@ -30,7 +30,7 @@ pub fn encodeMessage(content: anytype) ![]u8 {
 
 pub fn decodeMessage(message: []const u8) !DecodeMessage {
     const casted: []u8 = @constCast(message);
-    const separator = std.mem.indexOfAny(u8, casted, "\r\n\r\n");
+    const separator = std.mem.indexOf(u8, casted, "\r\n\r\n");
     if (separator == null) {
         return RPCError.InvalidHeader;
     }
@@ -41,18 +41,18 @@ pub fn decodeMessage(message: []const u8) !DecodeMessage {
     const contentLengthByte = result[name.len..];
     const contentLength: usize = try std.fmt.parseUnsigned(usize, contentLengthByte, 10);
 
-    const contentBytes = casted[(separator.? + 4)..][0..contentLength];
+    const content = casted[(separator.? + 4)..][0..contentLength];
     const parsed = try std.json.parseFromSlice(
         BaseMessage,
         std.heap.page_allocator,
-        contentBytes,
+        content,
         .{},
     );
-    const content = parsed.value;
+    const contentData = parsed.value;
 
     return .{
-        .method = content.method,
-        .content = contentBytes,
+        .method = contentData.method,
+        .content = content,
     };
 }
 
