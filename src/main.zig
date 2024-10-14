@@ -7,22 +7,45 @@ pub fn main() !void {
 
     const stdin = std.io.getStdIn();
     var buf = std.io.bufferedReader(stdin.reader());
-    var reader = buf.reader();
-    var msg_buf: [8192]u8 = undefined;
+    const reader = buf.reader();
 
-    var message: []u8 = "";
+    var header_buffer: [1024]u8 = undefined;
+    var header_stream = std.io.fixedBufferStream(&header_buffer);
+
     while (true) {
-        const result = try reader.readUntilDelimiterOrEof(&msg_buf, '\n');
-        if (result) |line| {
-            try logger.println(line);
-            message = try std.mem.concat(std.heap.page_allocator, u8, &[_][]const u8{ message, line });
-            if (try isReady(message)) {
-                message = "";
+        const header: []const u8 = blk: {
+            header_stream.reset();
+            while (!std.mem.endsWith(u8, header_buffer[0..header_stream.pos], "\r\n\r\n")) {
+                try reader.streamUntilDelimiter(header_stream.writer(), '\n', null);
+                _ = try header_stream.write("\n");
             }
-        }
+            break :blk header_buffer[0..header_stream.pos];
+        };
+
+        try logger.println(header);
     }
 
     try logger.println("Stopped AutoIt Language Server");
+}
+
+fn parseHeaders(bytes: []const u8) !struct { conteng_length: u32 } {
+    var content_length: ?u32 = null;
+
+    var lines = std.mem.splitScalar(u8, bytes, '\n');
+    while (lines.next()) |line| {
+        const trimmed = std.mem.trimRight(u8, line, &std.ascii.whitespace);
+        if (trimmed.len == 0) continue;
+
+        const colon = try std.mem.indexOfScalar(u8, trimmed, ':');
+
+        const value = std.mem.trim(u8, trimmed[colon + 1 ..], &std.ascii.whitespace);
+
+        content_length = try std.fmt.parseInt(u32, value, 10);
+    }
+
+    return .{
+        .content_length = content_length orelse return error.MissingContentLength,
+    };
 }
 
 fn isReady(message: []const u8) !bool {

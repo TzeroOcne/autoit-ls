@@ -1,3 +1,0 @@
-[2024-10-10 16:27:38]: Content-Length: 36
-[2024-10-10 16:27:38]: 
-[2024-10-10 16:27:38]: {"method":"textDocument/completion"}
