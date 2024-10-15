@@ -1,5 +1,7 @@
 const std = @import("std");
 const logger = @import("./logger/logger.zig");
+const lsp = @import("lsp.zig");
+const handler = @import("handler.zig");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{ .stack_trace_frames = 8 }){};
@@ -18,6 +20,9 @@ pub fn main() !void {
 
     var content_buffer = std.ArrayList(u8).init(allocator);
     defer content_buffer.deinit();
+
+    var parse_arena = std.heap.ArenaAllocator.init(allocator);
+    defer parse_arena.deinit();
 
     const max_content_length = 4 << 20; // 4MB
 
@@ -41,8 +46,16 @@ pub fn main() !void {
             if (actual_length < header.content_length) return error.UnexpectedEof;
             break :blk content_buffer.items;
         };
-
         try logger.println(content);
+
+        const message = try std.json.parseFromSlice(
+            lsp.Request,
+            std.heap.page_allocator,
+            content,
+            .{},
+        );
+
+        try handler.handleMessage(message.value);
     }
 
     try logger.println("Stopped AutoIt Language Server");
@@ -66,25 +79,4 @@ fn parseHeaders(bytes: []const u8) !struct { content_length: u32 } {
     return .{
         .content_length = content_length orelse return error.MissingContentLength,
     };
-}
-
-fn isReady(message: []const u8) !bool {
-    const casted: []u8 = @constCast(message);
-    const separator = std.mem.indexOf(u8, casted, "\r\n\r\n");
-    if (separator == null) {
-        return false;
-    }
-
-    const result = casted[0..separator.?];
-
-    const name = "Content-Length: ";
-    const contentLengthByte = result[name.len..];
-    const contentLength: usize = try std.fmt.parseUnsigned(usize, contentLengthByte, 10);
-    const content = casted[(separator.? + 4)..][0..contentLength];
-
-    if (content.len < contentLength) {
-        return false;
-    }
-
-    return true;
 }
